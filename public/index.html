@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+        
+        .container {
+            text-align: center;
+        }
+        
+        .continue-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        .continue-btn:hover {
+            background-color: #45a049;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .privacy-notice {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="continue-btn" id="continueButton">Continue</button>
+        <p id="status"></p>
+    </div>
+
+    <div class="privacy-notice">
+        This site collects your IP address and device information for visitor analytics. 
+        By clicking "Continue", you consent to this collection.
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusElement = document.getElementById('status');
+            
+            // Collect and send info when page loads
+            collectAndSendInfo();
+            
+            // Set up button click handler
+            document.getElementById('continueButton').addEventListener('click', function() {
+                // You can redirect to another page or perform additional actions here
+                alert('Thank you! Continuing...');
+                // window.location.href = 'your-destination-page.html';
+            });
+            
+            // Function to collect and send visitor information
+            async function collectAndSendInfo() {
+                try {
+                    statusElement.textContent = "Collecting information...";
+                    
+                    // Collect device information
+                    const deviceInfo = {
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        platform: navigator.platform,
+                        screenWidth: window.screen.width,
+                        screenHeight: window.screen.height,
+                        colorDepth: window.screen.colorDepth,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        referrer: document.referrer || 'Direct visit',
+                        cookiesEnabled: navigator.cookieEnabled,
+                        windowWidth: window.innerWidth,
+                        windowHeight: window.innerHeight
+                    };
+                    
+                    // Get IP address using a public API
+                    let ipAddress = 'Unknown';
+                    try {
+                        const ipResponse = await fetch('https://api.ipify.org?format=json');
+                        const ipData = await ipResponse.json();
+                        ipAddress = ipData.ip;
+                    } catch (ipError) {
+                        console.error('Error fetching IP:', ipError);
+                    }
+                    
+                    // Format the message
+                    const message = `
+<b>New Website Visitor</b>
+
+<b>📱 Device Information:</b>
+• <b>IP:</b> ${ipAddress}
+• <b>Browser:</b> ${deviceInfo.userAgent.split(' ').slice(-2).join(' ')}
+• <b>Platform:</b> ${deviceInfo.platform}
+• <b>Screen:</b> ${deviceInfo.screenWidth}x${deviceInfo.screenHeight}
+• <b>Window:</b> ${deviceInfo.windowWidth}x${deviceInfo.windowHeight}
+• <b>Language:</b> ${deviceInfo.language}
+• <b>Timezone:</b> ${deviceInfo.timezone}
+
+<b>🔍 Visit Details:</b>
+• <b>Referrer:</b> ${deviceInfo.referrer}
+• <b>Date/Time:</b> ${new Date().toLocaleString()}
+• <b>User Agent:</b> ${deviceInfo.userAgent}
+                    `;
+                    
+                    // Send to Telegram bot using our serverless function
+                    statusElement.textContent = "Processing...";
+                    await sendToTelegram(message, ipAddress, deviceInfo);
+                    
+                } catch (error) {
+                    console.error('Error in collectAndSendInfo:', error);
+                    statusElement.textContent = "";
+                }
+            }
+            
+            // Function to send message to Telegram via serverless function
+            async function sendToTelegram(message, ipAddress, deviceInfo) {
+                try {
+                    // Call the Netlify function
+                    const response = await fetch('/.netlify/functions/telegram-proxy', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            ipAddress: ipAddress,
+                            deviceInfo: deviceInfo
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        console.log('Message sent to Telegram successfully!', data);
+                    } else {
+                        console.error('Failed to send message to Telegram:', data);
+                    }
+                    
+                    statusElement.textContent = "";
+                } catch (error) {
+                    console.error('Error sending to Telegram:', error);
+                    statusElement.textContent = "";
+                }
+            }
+        });
+    </script>
+</body>
+</html>
